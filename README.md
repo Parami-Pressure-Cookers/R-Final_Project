@@ -18,7 +18,7 @@ The analysis was conducted entirely in **R**. We leveraged several key packages 
 ## Our Group Members
 * [Ei Phyu Sin Win](https://github.com/orgs/Parami-Pressure-Cookers/people/cathcath-ryn)
 * [Htet Khant Linn](https://github.com/Htet-Khant-Linn)
-* [Khine Nwe Lin]([https://github.com/username-charles](https://github.com/orgs/Parami-Pressure-Cookers/people/khinenwelynn))
+* [Khine Nwe Lin](https://github.com/orgs/Parami-Pressure-Cookers/people/khinenwelynn)
 
 
 ## 📂 Repository Structure
