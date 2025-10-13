@@ -16,14 +16,21 @@ The analysis was conducted entirely in **R**. We leveraged several key packages 
 
 ---
 ## Our Group Members
-* [Ei Phyu Sin Win](https://github.com/orgs/Parami-Pressure-Cookers/people/cathcath-ryn)
+* [Ei Phyu Sin Win](https://github.com/cathcath-ryn)
 * [Htet Khant Linn](https://github.com/Htet-Khant-Linn)
-* [Khine Nwe Lin](https://github.com/orgs/Parami-Pressure-Cookers/people/khinenwelynn)
+* [Khine Nwe Lin](https://github.com/khinenwelynn)
+* [Khant Razar Kyaw](https://github.com/khantgit)
 
 
 ## 📂 Repository Structure
 
 [Will be updated soon]
+---
+
+## Dataset Details
+
+
+
 ---
 
 ## 🛠️ Installation & Setup
@@ -68,4 +75,8 @@ This was a final project for a course, so we are not actively seeking contributi
 ## 📝 License
 
 This project is licensed under the MIT License. See the `LICENSE` file for more details.
+
+
+## ⚠️ Disclaimer
+The content in this repository is intended for the R Final Project. If you are a student in CS 251, please use this as a reference but do not copy the code
 
