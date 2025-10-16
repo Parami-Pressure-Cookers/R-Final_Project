@@ -33,6 +33,15 @@ The analysis was conducted entirely in **R**. We leveraged several key packages 
 
 ---
 
+## 📂 Dataset File Naming Convention rules 
+
+Naming conventions should only use alphanumeric characters, dashes, underscores. 
+Date should comes first in the name. Use the format as follows : YYYYMM-filename
+Avoid spades and special characters, such as:  ~ ! @ # $ % ^ & * ( ) ` ; : < > ? . , [ ] { } ' " |
+
+---
+
+
 ## 🛠️ Installation & Setup
 
 To replicate this analysis, you'll need to have R and RStudio installed on your machine.
@@ -65,6 +74,8 @@ Here are a few of the main conclusions from our analysis:
 
 
 ---
+
+
 
 ## 🤝 Contributing
 
