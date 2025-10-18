@@ -4,7 +4,7 @@
 
 ---
 
-![Pressure Cookers](data\pressure_cookers_cover_photo.jpg)
+![Pressure Cookers](data/pressure_cookers_cover_photo.jpg)
 
 
 ## Our Group Members
