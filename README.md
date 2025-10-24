@@ -21,7 +21,7 @@
 
 ## Description
 
-This repository contains the final project for the **CS 251** course. We explored a [2019 sales dataset](data\raw\2019-sales-monthly) to uncover patterns, trends and relationships. The key questions we sought to answer were:
+This repository contains the final project for the **CS 251** course. We explored a [2019 sales dataset](data/raw/2019-sales-monthly) to uncover patterns, trends and relationships. The key questions we sought to answer were:
 
 * **Question 1**: What was the best month for sales? How much was earned that month?
 * **Question 2**: What city has the highest sales?
