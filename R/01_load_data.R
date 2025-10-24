@@ -51,12 +51,10 @@ glimpse(all_sales_2019_combine)
 
 # Counts the number of missing cells (NA)
 total_NA_cells <- sum(is.na(all_sales_2019_combine))
+cat("Total no. of missing cells: ", total_NA_cells, "\n")
 
 # Counts the number of rows with at least one NA
 total_NA_rows <- sum(!complete.cases(all_sales_2019_combine))
-
-cat("Total no. of missing cells: ", total_NA_cells, "\n")
-
 cat("Total No. of missing rows: ", total_NA_rows, "\n")
 
 # counting total no. of rows before dropping
@@ -75,6 +73,7 @@ cat("No. of dropped rows: ", row_before - row_after)
 
 
 all_sales_2019 <- all_sales_2019 %>%
+  # this remove the no. of repeated header rows
   filter(`Order ID` != "Order ID") %>%
   mutate(
       OrderID = `Order ID`,
@@ -85,7 +84,10 @@ all_sales_2019 <- all_sales_2019 %>%
   ) %>%
   select(OrderID, Product, QuantityOrdered, PriceEach, OrderDate, PurchaseAddress)
                         
-nrow(all_sales_2019)
+row_after_cleaning_repeated_header <- nrow(all_sales_2019)
 
+cat("Total no. of repeated header rows that was dropped: ", row_after - row_after_cleaning_repeated_header)
 
+glimpse(all_sales_2019)
 
+write_csv(all_sales_2019, "data/processed/all_sales_2019.csv")
