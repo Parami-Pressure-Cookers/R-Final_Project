@@ -1,7 +1,7 @@
-# install.packages("readr")
-library(readr)
-library(dplyr)
+# install.packages("tidyverse")
+library(tidyverse)
 
+# loading each monthly sales
 jan_sales <- read_csv("data/raw/2019-sales-monthly/201901-sales.csv")
 head(jan_sales)
 
@@ -38,14 +38,54 @@ head(nov_sales)
 dec_sales <- read_csv("data/raw/2019-sales-monthly/201912-sales.csv")
 head(dec_sales)
 
-
-all_sales_2019 <- bind_rows(jan_sales, feb_sales, mar_sales,
+# combine the 12 months data using bind_rows
+all_sales_2019_combine <- bind_rows(jan_sales, feb_sales, mar_sales,
                             apr_sales, may_sales, jun_sales,
                             jul_sales, aug_sales, sep_sales,
                             oct_sales, nov_sales, dec_sales)
 
-head(all_sales_2019)
+head(all_sales_2019_combine)
 
-glimpse(all_sales_2019)
+# check the table info
+glimpse(all_sales_2019_combine)
 
-str(all_sales_2019)
+# Counts the number of missing cells (NA)
+total_NA_cells <- sum(is.na(all_sales_2019_combine))
+
+# Counts the number of rows with at least one NA
+total_NA_rows <- sum(!complete.cases(all_sales_2019_combine))
+
+cat("Total no. of missing cells: ", total_NA_cells, "\n")
+
+cat("Total No. of missing rows: ", total_NA_rows, "\n")
+
+# counting total no. of rows before dropping
+row_before <- nrow(all_sales_2019_combine)
+cat("Number of rows before dropping NA: ", row_before, "\n")
+
+# dropping NA rows
+all_sales_2019 <- drop_na(all_sales_2019_combine)
+# counting total no. of rows after dropping
+row_after <- nrow(all_sales_2019)
+
+cat("Number of rows after dropping NA: ", row_after, "\n")
+
+# if this match with the total no. of missing row, we can validate it
+cat("No. of dropped rows: ", row_before - row_after)
+
+
+all_sales_2019 <- all_sales_2019 %>%
+  filter(`Order ID` != "Order ID") %>%
+  mutate(
+      OrderID = `Order ID`,
+      QuantityOrdered = as.integer(`Quantity Ordered`),
+      PriceEach = as.numeric(`Price Each`),
+      OrderDate = `Order Date`,
+      PurchaseAddress = `Purchase Address`
+  ) %>%
+  select(OrderID, Product, QuantityOrdered, PriceEach, OrderDate, PurchaseAddress)
+                        
+nrow(all_sales_2019)
+
+
+
