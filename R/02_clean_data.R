@@ -1,6 +1,9 @@
 library(tidyverse)
 library(tidyr)
 library(stringr)
+library(lubridate)
+
+
 # check the table info
 glimpse(all_sales_2019_combine)
 
@@ -49,3 +52,29 @@ glimpse(all_sales_2019)
 
 write_csv(all_sales_2019, "data/processed/all_sales_2019.csv")
 
+# separating PurchaseAddress into 3 Columns (Street, City and State_ZIP)
+all_sales_2019_splitted_and_formatted <- separate(all_sales_2019, PurchaseAddress, into = c("Street", "City", "State_ZIP"), sep = ", ")
+
+# Further manipulate and separate City and ZIP columns
+all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>%
+  mutate(
+    TotalSales = QuantityOrdered * PriceEach,
+    City = str_c(City, " (", str_extract(State_ZIP, "^[A-Z]{2}"), ")"),
+    ZIP = str_extract(State_ZIP, "\\d{5}$")
+    )
+
+all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>%
+  mutate(
+    OrderDateTime = mdy_hm(OrderDate),
+    Month = month(OrderDateTime, label = TRUE),
+    Hour = hour(OrderDateTime)
+  )
+
+all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>% 
+  select(
+    OrderID, Product, QuantityOrdered, PriceEach, TotalSales, Street, City, ZIP, Month, Hour, OrderDateTime
+    )
+
+glimpse(all_sales_2019_splitted_and_formatted)
+
+write_csv(all_sales_2019_splitted_and_formatted, "data/processed/all_sales_2019_v2.csv")
