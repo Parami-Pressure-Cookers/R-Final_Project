@@ -1,0 +1,582 @@
+---
+title: "2025-11-03-R-Final-Project-V2"
+author: "Ei Phyu Sin Win, Htet Khant Linn, Khant Razar Kyaw, Khine Nwe Lin"
+date: "2025-12-03"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Library Installation
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(stringr)
+library(lubridate)
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(scales)
+library(forcats)
+
+```
+
+# Data Loading
+
+## Loading each monthly sales
+
+```{r}
+jan_sales <- read_csv("data/raw/2019-sales-monthly/201901-sales.csv")
+head(jan_sales)
+```
+
+```{r}
+feb_sales <- read_csv("data/raw/2019-sales-monthly/201902-sales.csv")
+head(feb_sales)
+```
+
+```{r}
+mar_sales <- read_csv("data/raw/2019-sales-monthly/201903-sales.csv")
+head(mar_sales)
+```
+
+```{r}
+apr_sales <- read_csv("data/raw/2019-sales-monthly/201904-sales.csv")
+head(apr_sales)
+```
+
+```{r}
+may_sales <- read_csv("data/raw/2019-sales-monthly/201905-sales.csv")
+head(may_sales)
+```
+
+```{r}
+jun_sales <- read_csv("data/raw/2019-sales-monthly/201906-sales.csv")
+head(jun_sales)
+```
+
+```{r}
+jul_sales <- read_csv("data/raw/2019-sales-monthly/201907-sales.csv")
+head(jul_sales)
+```
+
+```{r}
+aug_sales <- read_csv("data/raw/2019-sales-monthly/201908-sales.csv")
+head(aug_sales)
+```
+
+```{r}
+sep_sales <- read_csv("data/raw/2019-sales-monthly/201909-sales.csv")
+head(sep_sales)
+```
+
+```{r}
+oct_sales <- read_csv("data/raw/2019-sales-monthly/201910-sales.csv")
+head(oct_sales)
+```
+
+```{r}
+nov_sales <- read_csv("data/raw/2019-sales-monthly/201911-sales.csv")
+head(nov_sales)
+```
+
+```{r}
+dec_sales <- read_csv("data/raw/2019-sales-monthly/201912-sales.csv")
+head(dec_sales)
+```
+
+## Combine the 12 months data using bind_rows
+
+```{r}
+all_sales_2019_combine <- bind_rows(jan_sales, feb_sales, mar_sales,
+                            apr_sales, may_sales, jun_sales,
+                            jul_sales, aug_sales, sep_sales,
+                            oct_sales, nov_sales, dec_sales)
+
+head(all_sales_2019_combine)
+```
+
+
+# EDA Process
+
+## Clean the Data
+
+### Check the Table Info
+
+```{r}
+glimpse(all_sales_2019_combine)
+```
+
+### Counts the Number of Missing Cells (NA)
+
+```{r}
+total_NA_cells <- sum(is.na(all_sales_2019_combine))
+cat("Total no. of missing cells: ", total_NA_cells, "\n")
+
+```
+
+### Counts the Number of Rows with at Least One NA
+
+```{r}
+total_NA_rows <- sum(!complete.cases(all_sales_2019_combine))
+cat("Total No. of missing rows: ", total_NA_rows, "\n")
+```
+
+### Counting Total No. of Rows Before Dropping
+
+```{r}
+row_before <- nrow(all_sales_2019_combine)
+cat("Number of rows before dropping NA: ", row_before, "\n")
+```
+
+### Dropping NA Rows
+
+```{r}
+all_sales_2019 <- drop_na(all_sales_2019_combine)
+# counting total no. of rows after dropping
+row_after <- nrow(all_sales_2019)
+cat("Number of rows after dropping NA: ", row_after, "\n")
+
+# if this match with the total no. of missing row, we can validate it
+cat("No. of dropped rows: ", row_before - row_after)
+```
+
+### Removing Duplicated Header Rows
+
+```{r}
+all_sales_2019 <- all_sales_2019 %>%
+  # this remove the no. of repeated header rows
+  filter(`Order ID` != "Order ID") %>%
+  mutate(
+    OrderID = `Order ID`,
+    QuantityOrdered = as.integer(`Quantity Ordered`),
+    PriceEach = as.numeric(`Price Each`),
+    OrderDate = `Order Date`,
+    PurchaseAddress = `Purchase Address`,
+    ZIP = str_extract(PurchaseAddress, "\\d{5}$")
+  ) %>%
+  select(OrderID, Product, QuantityOrdered, PriceEach, OrderDate, PurchaseAddress, ZIP)
+
+row_after_cleaning_repeated_header <- nrow(all_sales_2019)
+
+cat("Total no. of repeated header rows that was dropped: ", row_after - row_after_cleaning_repeated_header)
+```
+
+### Check the Table Info & Exporting
+
+```{r}
+glimpse(all_sales_2019)
+
+write_csv(all_sales_2019, "data/processed/all_sales_2019.csv")
+```
+
+
+
+## Data Manipulation
+### Separating PurchaseAddress into 3 Columns (Street, City and State_ZIP)
+
+```{r}
+all_sales_2019_splitted_and_formatted <- separate(all_sales_2019, PurchaseAddress, into = c("Street", "City", "State_ZIP"), sep = ", ")
+```
+
+
+### Add TotalSales & Separate City and ZIP columns
+```{r}
+all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>%
+  mutate(
+    TotalSales = QuantityOrdered * PriceEach,
+    City = str_c(City, " (", str_extract(State_ZIP, "^[A-Z]{2}"), ")"),
+    ZIP = str_extract(State_ZIP, "\\d{5}$")
+    )
+```
+
+### Adding OrderDataTime, Month, and Hour Columns
+```{r}
+all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>%
+  mutate(
+    OrderDateTime = mdy_hm(OrderDate),
+    Month = month(OrderDateTime, label = TRUE),
+    Hour = hour(OrderDateTime)
+  )
+```
+
+### Select and Check the Clean Data
+```{r}
+all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>% 
+  select(
+    OrderID, Product, QuantityOrdered, PriceEach, TotalSales, Street, City, ZIP, Month, Hour, OrderDateTime
+    )
+
+glimpse(all_sales_2019_splitted_and_formatted)
+```
+
+### Exporting Clean Data into CSV
+```{r}
+# write_csv(all_sales_2019_splitted_and_formatted, "data/processed/all_sales_2019_v2.csv")
+
+```
+
+
+# EDA Process
+## Importing Data
+```{r}
+all_sales_2019 <- read_csv("data/processed/all_sales_2019_v2.csv")
+
+# Check data structure and Null Value.
+head(all_sales_2019)
+glimpse(all_sales_2019)
+
+```
+
+## Calcuating Summary Statistics
+```{r}
+cat("=== General Summary of Data ===\n")
+summary(all_sales_2019 %>% select(QuantityOrdered, PriceEach, TotalSales))
+```
+
+## Checking Null Value
+```{r}
+sum(is.na(all_sales_2019))
+```
+
+
+# Question 1: What was the best month for sales? How much was earned that month?
+```{r}
+total_sales_each_month <- all_sales_2019 %>%
+  group_by(Month) %>%
+  summarize(TotalSales = sum(TotalSales)) %>%
+  arrange(desc(TotalSales))
+
+# write_csv(total_sales_each_month, "outputs/tables/total_sales_each_month.csv")
+
+month_order = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+# ordering month for visual
+total_sales_each_month <- total_sales_each_month %>%
+  mutate(Month = factor(Month, levels = month_order))
+
+vis_1 <- ggplot(total_sales_each_month, aes(x = Month, y = TotalSales)) +
+  geom_col() + 
+  labs(title = "Total Sales by Month",
+       x = "Month",
+       y = "Total Sales in USD ($)")
+
+vis_1 <- vis_1 + 
+  geom_text(aes(label = scales::dollar(TotalSales, scale = 1/1e6, suffix = "M")),
+            vjust = -0.5,
+            size = 2.5) +
+  scale_y_continuous(
+    labels = scales::dollar_format(scale = 1/1e6, suffix = "M"),
+    expand = expansion(add = c(0, 1e6))
+    ) +
+  theme_minimal()
+
+# ggsave("outputs/figures/total_sales_by_month.jpg", plot = vis_1)
+print(vis_1)
+
+
+
+best_month_for_sales <- total_sales_each_month %>%
+  slice_max(TotalSales, n = 1)
+
+cat("The best month for sales is", best_month_for_sales$Month, 
+    "with the total sales of", 
+    paste0("$", best_month_for_sales$TotalSales, "."),
+    "\n")
+```
+
+
+# Question 2: What city has the highest sales?
+```{r}
+total_sales_each_city <- all_sales_2019 %>%
+  group_by(City) %>%
+  summarize(TotalSales = sum(TotalSales)) %>%
+  arrange(desc(TotalSales))
+
+# write_csv(total_sales_each_city, "outputs/tables/total_sales_each_city.csv")
+
+vis_2 <- ggplot(total_sales_each_city, aes(TotalSales, City)) +
+  geom_col()
+
+vis_2 <- vis_2 + 
+  labs(
+    title = "Total Sales per City",
+    x = "Total Sales n USD ($)",
+    y = "City Name"
+  )+
+  geom_text(aes(label = scales::dollar(TotalSales, scale = 1/1e6, suffix = "M")),
+                   hjust = -0.2,
+                   size = 2.5) +
+  scale_x_continuous(
+    label = scales::dollar_format(scale = 1/1e6, suffix = "M"),
+     expand = expansion(add = c(0, 1e6))
+    ) + 
+  theme_minimal()
+
+# ggsave("outputs/figures/total_sales_per_city.jpg", plot = vis_2)
+print(vis_2)
+
+city_with_highest_sales <- total_sales_each_city %>%
+  slice_max(TotalSales, n = 1)
+
+
+cat("The city with highest sales is", city_with_highest_sales$City, 
+    "with the total sales of", 
+    paste0("$", city_with_highest_sales$TotalSales, "."),
+    "\n")
+```
+
+
+# Question 3: What time should we display advertisements to maximize likehood of customers buying products?
+```{r}
+glimpse(all_sales_2019)
+
+sales_by_hours <- all_sales_2019 %>%
+  group_by(Hour) %>%
+  summarize(TotalQuantitySales = sum(QuantityOrdered))
+
+# write_csv(sales_by_hours, "outputs/tables/sales_by_hours.csv")
+
+vis_3 <- ggplot(sales_by_hours, aes(x = Hour, y = TotalQuantitySales)) +
+  geom_line(size = 1) +
+  labs(
+    title = "Total Sales by Hours",
+    y = "Total Sales in USD ($)",
+    x = "Hour of the Day (24 Hrs)"
+  ) +
+  scale_x_continuous(breaks = seq(0, 24, by = 4)) +
+  scale_y_continuous(breaks = seq(0, 17500, by = 2500)) +
+  theme_minimal()
+
+# ggsave("outputs/figures/total_sales_by_hours.jpg", plot = vis_3)
+print(vis_3)
+```
+
+
+# Question 4: What products are most often sold together?
+```{r}
+duplicated_OrderID <- all_sales_2019 %>%
+  group_by(OrderID) %>%
+  filter(n() > 1) %>% 
+  select(OrderID, Product) %>%
+  ungroup()
+
+products_sold_together <- duplicated_OrderID %>%
+  group_by(OrderID) %>%
+#  count(sort = TRUE) %>%
+  summarize(ProductPairs = paste(sort(Product), collapse = ", ")) %>%
+  ungroup()
+
+products_sold_together_count <- products_sold_together %>%
+  count(ProductPairs, sort = TRUE) %>%
+  rename(TotalSales = n)
+
+top_10_products_sold_together <- head(products_sold_together_count, n = 10)
+
+print(top_10_products_sold_together)
+# write_csv(products_sold_together_count, "outputs/tables/products_sold_together.csv")
+```
+
+
+# Question 5: What product sold the most?
+```{r}
+single_product_sold <- all_sales_2019 %>%
+  group_by(Product) %>%
+  count(wt = QuantityOrdered, sort = TRUE) %>%
+  rename(TotalUnitSold = n)
+
+most_single_product_sold <- single_product_sold %>%
+  head(1)
+
+
+cat(paste0("The most sold product is ", most_single_product_sold$Product,
+           " with the total sales of ", most_single_product_sold$TotalUnitSold,
+           " items. \n"))
+
+# write_csv(single_product_sold, "outputs/tables/product_sales.csv")
+
+vis_4 <- ggplot(single_product_sold, aes(TotalUnitSold, fct_reorder(Product, TotalUnitSold))) +
+  geom_col() +
+  labs(
+    title = "Product Sales",
+    x = "Number of Units Sold",
+    y = "Product Name"
+  ) +
+  theme_minimal()
+
+# ggsave("outputs/figures/product_sales.jpg", plot = vis_4)
+print(vis_4)
+```
+
+
+# Building Time series model
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(forecast)
+library(tseries)
+
+# all_sales_2019 <- read_csv("data/processed/all_sales_2019_v2.csv")
+```
+
+## aggregate sales by day
+```{r}
+daily_sales <- all_sales_2019 %>%
+  mutate(Date = as.Date(OrderDateTime)) %>% # Date format
+  group_by(Date) %>%
+  summarize(TotalSales = sum(TotalSales)) %>%
+  arrange(Date) # data is ordered chronologically
+
+```
+
+
+## create a Time Series Object
+```{r}
+# use frequency = 7 >>> weekly seasonality
+sales_ts2 <- ts(daily_sales$TotalSales, frequency = 7)
+```
+
+# analyze Differencing
+```{r}
+sales_diff <- diff(sales_ts2)
+# we look at the Differenced data (Day 2 - Day 1)
+```
+
+
+# plot ACF and PACF
+```{r}
+ggtsdisplay(sales_diff, main="ACF & PACF of Differenced Sales")
+```
+
+
+# MODEL BUILDING
+## Model A: (ARIMA 0,1,1)
+```{r}
+model_a <- Arima(sales_ts2, order = c(0,1,1))
+```
+
+
+## Model B: (ARIMA 1,1,1)
+```{r}
+model_b <- Arima(sales_ts2, order = c(1,1,1))
+# checks if yesterday's sales value directly predicts today's
+```
+
+
+## Model C: (SARIMA 1,1,1)(1,0,0)[7]
+```{r}
+model_c <- Arima(sales_ts2, 
+                 order = c(1,1,1), 
+                 seasonal = list(order = c(1,1,1), period = 7))
+# looks for a 7-day (weekly) pattern
+```
+
+# Compare Models
+```{r}
+cat("AIC Comparison (note: Lower is Better):\n")
+cat("Model A (0,1,1):", AIC(model_a), "\n")
+cat("Model B (1,1,1):", AIC(model_b), "\n")
+cat("Model C (Seasonal):", AIC(model_c), "\n")
+```
+
+
+# Visual Comparison of Forecasts
+```{r}
+autoplot(sales_ts2) +
+  autolayer(forecast(model_a, h=30), series="Model A (0,1,1)", PI=FALSE) +
+  autolayer(forecast(model_b, h=30), series="Model B (1,1,1)", PI=FALSE) +
+  autolayer(forecast(model_c, h=30), series="Model C (Seasonal)", PI=FALSE) +
+  labs(title = "Comparing Straight Line vs. Seasonal Forecasts",
+       y = "Daily Sales ($)") +
+  theme_minimal()
+```
+
+# visualization with the uncertainty
+```{r}
+autoplot(sales_ts2) +
+  autolayer(forecast(model_c, h=30), series="Model C (Seasonal)", PI=TRUE) +
+  labs(title = "Comparing Straight Line vs. Seasonal Forecasts",
+       y = "Daily Sales ($)") +
+  theme_minimal()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+===
+# Building Linear Model (Archive Part - only for review purpose)
+**Please note that we only add this part to show what we have done before Professor feedback during the presentation.
+We have changed our model to Time Series as mentioned above according to professor feedback**
+
+### 1. Prepare Data: Aggregate sales by day
+```{r}
+daily_sales2 <- all_sales_2019 %>%
+  mutate(Date = as.Date(OrderDateTime, format = "%m/%d/%y %H:%M")) %>%
+  group_by(Date) %>%
+  summarize(TotalSales = sum(QuantityOrdered * PriceEach)) %>%
+  mutate(DayIndex = as.numeric(Date - min(Date) + 1)) # Create a numeric time variable
+```
+
+### 2. Build Linear Model (Simple Linear Regression)
+
+Independent Variable (X): Day of the year (Time).
+Dependent Variable (Y): Total Daily Sales.
+Goal: Determine if sales are significantly increasing or decreasing as the year progresses.
+
+```{r}
+# Model: TotalSales = Intercept + Slope * DayIndex
+sales_model <- lm(TotalSales ~ DayIndex, data = daily_sales2)
+```
+
+### 3. Model Evaluation
+```{r}
+model_summary <- summary(sales_model)
+print(model_summary)
+```
+**Model Evaluation**
+**Intercept(70834.64)**: The model estimates that on Day 0 (the very start of the year), the business would have made about $70834.64 in sales.
+**DayIndex(127.55)**: For every single day that passes in 2019, the total sales increased by an average of $127.55.Since this number is positive, the business is growing daily throughout the year.
+
+**P-Value**: The P-Value is extremely small, showing statistically significant. Because the value is less than 0.05, we are confident that the increase in sales is real and not just due to random luck.
+
+**R-Squared Value**
+```{r}
+# Extract R-squared to see how well the date explains sales variance
+r_squared <- model_summary$r.squared
+cat("R-squared:", r_squared, "\n")
+```
+While there is a clear upward trend (sales increasing by ~$127/day), the date alone only explains about 27% of the sales volume. The remaining 73% of variation is *likely due to weekly cycles (weekends vs weekdays) and holiday spikes*.
+
+
+### 4. Visualization with Regression Line
+```{r}
+ggplot(daily_sales2, aes(x = Date, y = TotalSales)) +
+  geom_point(alpha = 0.5, color = "navyblue") +      # Scatter plot of actual data
+  geom_smooth(method = "lm", color = "red") +    # The regression line
+  labs(title = "Daily Sales Trend (2019)",
+       subtitle = paste("R-squared:", round(r_squared, 4)),
+       x = "Date",
+       y = "Total Sales ($)") +
+  theme_minimal()
+
+# ggsave("outputs/figures/sales_trend_regression.png")
+```
+===
+
+
+

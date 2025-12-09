@@ -1,0 +1,100 @@
+---
+title: "04.1_time_series_model"
+author: "Ei Phyu Sin Win | Htet Khant Linn | Khant Razar Kyaw | Khine Nwe Lin"
+date: "2025-12-06"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(forecast)
+library(tseries)
+
+all_sales_2019 <- read_csv("data/processed/all_sales_2019_v2.csv")
+```
+
+## aggregate sales by day
+```{r}
+daily_sales <- all_sales_2019 %>%
+  mutate(Date = as.Date(OrderDateTime)) %>% # Date format
+  group_by(Date) %>%
+  summarize(TotalSales = sum(TotalSales)) %>%
+  arrange(Date) # data is ordered chronologically
+
+```
+
+
+## create a Time Series Object
+```{r}
+# use frequency = 7 >>> weekly seasonality
+sales_ts2 <- ts(daily_sales$TotalSales, frequency = 7)
+```
+
+# analyze Differencing
+```{r}
+sales_diff <- diff(sales_ts2)
+# we look at the Differenced data (Day 2 - Day 1)
+```
+
+
+# plot ACF and PACF
+```{r}
+ggtsdisplay(sales_diff, main="ACF & PACF of Differenced Sales")
+```
+
+
+# MODEL BUILDING
+## Model A: (ARIMA 0,1,1)
+```{r}
+model_a <- Arima(sales_ts2, order = c(0,1,1))
+```
+
+
+## Model B: (ARIMA 1,1,1)
+```{r}
+model_b <- Arima(sales_ts2, order = c(1,1,1))
+# checks if yesterday's sales value directly predicts today's
+```
+
+
+## Model C: (SARIMA 1,1,1)(1,0,0)[7]
+```{r}
+model_c <- Arima(sales_ts2, 
+                 order = c(1,1,1), 
+                 seasonal = list(order = c(1,1,1), period = 7))
+# looks for a 7-day (weekly) pattern
+```
+
+# Compare Models
+```{r}
+cat("AIC Comparison (Lower is Better):\n")
+cat("Model A (0,1,1):", AIC(model_a), "\n")
+cat("Model B (1,1,1):", AIC(model_b), "\n")
+cat("Model C (Seasonal):", AIC(model_c), "\n")
+```
+
+
+# Visual Comparison of Forecasts
+```{r}
+autoplot(sales_ts2) +
+  autolayer(forecast(model_a, h=30), series="Model A (0,1,1)", PI=FALSE) +
+  autolayer(forecast(model_b, h=30), series="Model B (1,1,1)", PI=FALSE) +
+  autolayer(forecast(model_c, h=30), series="Model C (Seasonal)", PI=FALSE) +
+  labs(title = "Comparing Straight Line vs. Seasonal Forecasts",
+       y = "Daily Sales ($)") +
+  theme_minimal()
+```
+
+# visualization with the uncertainty
+```{r}
+autoplot(sales_ts2) +
+  autolayer(forecast(model_c, h=30), series="Model C (Seasonal)", PI=TRUE) +
+  labs(title = "Comparing Straight Line vs. Seasonal Forecasts",
+       y = "Daily Sales ($)") +
+  theme_minimal()
+```

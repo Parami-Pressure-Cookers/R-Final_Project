@@ -1,0 +1,215 @@
+---
+title: "R Final Project"
+author: "Ei Phyu Sin Win | Htet Khant Linn | Khant Razar Kyaw | Khine Nwe Lin"
+date: "2025-12-02"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Library Installation
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(stringr)
+library(lubridate)
+
+
+```
+
+# Data Loading
+
+## Loading each monthly sales
+
+```{r}
+jan_sales <- read_csv("data/raw/2019-sales-monthly/201901-sales.csv")
+head(jan_sales)
+```
+
+```{r}
+feb_sales <- read_csv("data/raw/2019-sales-monthly/201902-sales.csv")
+head(feb_sales)
+```
+
+```{r}
+mar_sales <- read_csv("data/raw/2019-sales-monthly/201903-sales.csv")
+head(mar_sales)
+```
+
+```{r}
+apr_sales <- read_csv("data/raw/2019-sales-monthly/201904-sales.csv")
+head(apr_sales)
+```
+
+```{r}
+may_sales <- read_csv("data/raw/2019-sales-monthly/201905-sales.csv")
+head(may_sales)
+```
+
+```{r}
+jun_sales <- read_csv("data/raw/2019-sales-monthly/201906-sales.csv")
+head(jun_sales)
+```
+
+```{r}
+jul_sales <- read_csv("data/raw/2019-sales-monthly/201907-sales.csv")
+head(jul_sales)
+```
+
+```{r}
+aug_sales <- read_csv("data/raw/2019-sales-monthly/201908-sales.csv")
+head(aug_sales)
+```
+
+```{r}
+sep_sales <- read_csv("data/raw/2019-sales-monthly/201909-sales.csv")
+head(sep_sales)
+```
+
+```{r}
+oct_sales <- read_csv("data/raw/2019-sales-monthly/201910-sales.csv")
+head(oct_sales)
+```
+
+```{r}
+nov_sales <- read_csv("data/raw/2019-sales-monthly/201911-sales.csv")
+head(nov_sales)
+```
+
+```{r}
+dec_sales <- read_csv("data/raw/2019-sales-monthly/201912-sales.csv")
+head(dec_sales)
+```
+
+## Combine the 12 months data using bind_rows
+
+```{r}
+all_sales_2019_combine <- bind_rows(jan_sales, feb_sales, mar_sales,
+                            apr_sales, may_sales, jun_sales,
+                            jul_sales, aug_sales, sep_sales,
+                            oct_sales, nov_sales, dec_sales)
+
+head(all_sales_2019_combine)
+```
+
+
+# EDA Process
+
+## Clean the Data
+
+### Check the Table Info
+
+```{r}
+glimpse(all_sales_2019_combine)
+```
+
+### Counts the Number of Missing Cells (NA)
+
+```{r}
+total_NA_cells <- sum(is.na(all_sales_2019_combine))
+cat("Total no. of missing cells: ", total_NA_cells, "\n")
+
+```
+
+### Counts the Number of Rows with at Least One NA
+
+```{r}
+total_NA_rows <- sum(!complete.cases(all_sales_2019_combine))
+cat("Total No. of missing rows: ", total_NA_rows, "\n")
+```
+
+### Counting Total No. of Rows Before Dropping
+
+```{r}
+row_before <- nrow(all_sales_2019_combine)
+cat("Number of rows before dropping NA: ", row_before, "\n")
+```
+
+### Dropping NA Rows
+
+```{r}
+all_sales_2019 <- drop_na(all_sales_2019_combine)
+# counting total no. of rows after dropping
+row_after <- nrow(all_sales_2019)
+cat("Number of rows after dropping NA: ", row_after, "\n")
+
+# if this match with the total no. of missing row, we can validate it
+cat("No. of dropped rows: ", row_before - row_after)
+```
+
+### Removing Duplicated Header Rows
+
+```{r}
+all_sales_2019 <- all_sales_2019 %>%
+  # this remove the no. of repeated header rows
+  filter(`Order ID` != "Order ID") %>%
+  mutate(
+    OrderID = `Order ID`,
+    QuantityOrdered = as.integer(`Quantity Ordered`),
+    PriceEach = as.numeric(`Price Each`),
+    OrderDate = `Order Date`,
+    PurchaseAddress = `Purchase Address`,
+    ZIP = str_extract(PurchaseAddress, "\\d{5}$")
+  ) %>%
+  select(OrderID, Product, QuantityOrdered, PriceEach, OrderDate, PurchaseAddress, ZIP)
+
+row_after_cleaning_repeated_header <- nrow(all_sales_2019)
+
+cat("Total no. of repeated header rows that was dropped: ", row_after - row_after_cleaning_repeated_header)
+```
+
+### Check the Table Info & Exporting
+
+```{r}
+glimpse(all_sales_2019)
+
+write_csv(all_sales_2019, "data/processed/all_sales_2019.csv")
+```
+
+---
+
+## Data Manipulation
+### Separating PurchaseAddress into 3 Columns (Street, City and State_ZIP)
+
+```{r}
+all_sales_2019_splitted_and_formatted <- separate(all_sales_2019, PurchaseAddress, into = c("Street", "City", "State_ZIP"), sep = ", ")
+```
+
+
+### Add TotalSales & Separate City and ZIP columns
+```{r}
+all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>%
+  mutate(
+    TotalSales = QuantityOrdered * PriceEach,
+    City = str_c(City, " (", str_extract(State_ZIP, "^[A-Z]{2}"), ")"),
+    ZIP = str_extract(State_ZIP, "\\d{5}$")
+    )
+```
+
+### Adding OrderDataTime, Month, and Hour Columns
+```{r}
+all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>%
+  mutate(
+    OrderDateTime = mdy_hm(OrderDate),
+    Month = month(OrderDateTime, label = TRUE),
+    Hour = hour(OrderDateTime)
+  )
+```
+
+### Select and Check the Clean Data
+```{r}
+all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>% 
+  select(
+    OrderID, Product, QuantityOrdered, PriceEach, TotalSales, Street, City, ZIP, Month, Hour, OrderDateTime
+    )
+
+glimpse(all_sales_2019_splitted_and_formatted)
+```
+
+### Exporting Clean Data into CSV
+```{r}
+# write_csv(all_sales_2019_splitted_and_formatted, "data/processed/all_sales_2019_v2.csv")
+
+```

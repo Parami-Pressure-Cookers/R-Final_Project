@@ -5,12 +5,18 @@ library(scales)
 library(forcats)
 
 
+
 # You can clean the environment as we are reading the data again.
 all_sales_2019 <- read_csv("data/processed/all_sales_2019_v2.csv")
 
 # Check data structure and Null Value.
 head(all_sales_2019)
 glimpse(all_sales_2019)
+
+# Calculating Summary Statistics
+cat("=== General Summary of Data ===\n")
+summary(all_sales_2019 %>% select(QuantityOrdered, PriceEach, TotalSales))
+
 
 # Check Null Value
 sum(is.na(all_sales_2019))
@@ -156,7 +162,7 @@ write_csv(products_sold_together_count, "outputs/tables/products_sold_together.c
 
 # ===========================================================
 
-# Question 5: What product sold the most? Why do you think it sold the most?
+# Question 5: What product sold the most?
 
 single_product_sold <- all_sales_2019 %>%
   group_by(Product) %>%
@@ -185,6 +191,25 @@ vis_4 <- ggplot(single_product_sold, aes(TotalUnitSold, fct_reorder(Product, Tot
 ggsave("outputs/figures/product_sales.jpg", plot = vis_4)
 print(vis_4)
 
+# Get Quantity and Price by Product
+trend <- all_sales_2019 %>%
+  group_by(Product) %>%
+  summarize(Qty = sum(QuantityOrdered), Price = mean(PriceEach))
+
+# Calculate scaling factor
+coeff <- max(trend$Qty) / max(trend$Price)
+
+# 
+ggplot(trend, aes(x = Product)) +
+  geom_col(aes(y = Qty)) + 
+  geom_line(aes(y = Price * coeff, group = 1), color = "red", size = 0.5) + 
+  geom_point(aes(y = Price * coeff), color = "green", size = 1) + 
+  scale_y_continuous(
+    name = "Quantity", 
+    sec.axis = sec_axis(~ . / coeff, name = "Mean Price ($)")
+  ) +
+  coord_flip() +  # rotates the chart
+  theme_minimal()
 
 # ===========================================================
 
