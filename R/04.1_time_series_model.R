@@ -5,7 +5,6 @@ library(tseries)
 
 all_sales_2019 <- read_csv("data/processed/all_sales_2019_v2.csv")
 
-
 # Aggregate sales by day
 daily_sales <- all_sales_2019 %>%
   mutate(Date = as.Date(OrderDateTime)) %>% # Date format
@@ -17,31 +16,53 @@ daily_sales <- all_sales_2019 %>%
 # use frequency = 7 >>> weekly seasonality
 sales_ts <- ts(daily_sales$TotalSales, frequency = 7)
 
-# check for adf test
-print(adf.test(sales_ts))
+# analyze Differencing
+sales_diff <- diff(sales_ts2)
+# we look at the Differenced data (Day 2 - Day 1)
 
-# Fit the ARIMA Model
-arima_model <- auto.arima(sales_ts, seasonal = TRUE)
 
-# print Model Summary
-print(summary(arima_model))
+# Plot ACF and PACF
+ggtsdisplay(sales_diff, main="ACF & PACF of Differenced Sales")
 
-# check residuals
-checkresiduals(arima_model)
 
-# forecast future sales (Next 30 Days)
-sales_forecast <- forecast(arima_model, h = 30)
 
-# visualization
-autoplot(sales_forecast) +
-  labs(title = "Daily Sales Forecast (ARIMA)",
-       x = "Time (Weeks)",
-       y = "Total Sales ($)") +
+# MODEL BUILDING
+## Model A: (ARIMA 0,1,1)
+model_a <- Arima(sales_ts2, order = c(0,1,1))
+
+## Model B: (ARIMA 1,1,1)
+model_b <- Arima(sales_ts2, order = c(1,1,1))
+# checks if yesterday's sales value directly predicts today's
+
+
+## Model C: (SARIMA 1,1,1)(1,0,0)[7]
+model_c <- Arima(sales_ts2, 
+                 order = c(1,1,1), 
+                 seasonal = list(order = c(1,1,1), period = 7))
+# looks for a 7-day (weekly) pattern
+
+# Compare Models
+cat("AIC Comparison (Lower is Better):\n")
+cat("Model A (0,1,1):", AIC(model_a), "\n")
+cat("Model B (1,1,1):", AIC(model_b), "\n")
+cat("Model C (Seasonal):", AIC(model_c), "\n")
+
+
+# Visual Comparison of Forecasts
+autoplot(sales_ts2) +
+  autolayer(forecast(model_a, h=30), series="Model A (0,1,1)", PI=FALSE) +
+  autolayer(forecast(model_b, h=30), series="Model B (1,1,1)", PI=FALSE) +
+  autolayer(forecast(model_c, h=30), series="Model C (Seasonal)", PI=FALSE) +
+  labs(title = "Comparing Straight Line vs. Seasonal Forecasts",
+       y = "Daily Sales ($)") +
   theme_minimal()
 
-# visualization without the purple shade
-autoplot(sales_forecast, PI = FALSE) +
-  geom_line(color = "red", size = 1.5)
+# visualization with the uncertainty
+autoplot(sales_ts2) +
+  autolayer(forecast(model_c, h=30), series="Model C (Seasonal)", PI=TRUE) +
+  labs(title = "Comparing Straight Line vs. Seasonal Forecasts",
+       y = "Daily Sales ($)") +
+  theme_minimal()
 
 
 

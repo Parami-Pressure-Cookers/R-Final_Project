@@ -191,6 +191,25 @@ vis_4 <- ggplot(single_product_sold, aes(TotalUnitSold, fct_reorder(Product, Tot
 ggsave("outputs/figures/product_sales.jpg", plot = vis_4)
 print(vis_4)
 
+# Get Quantity and Price by Product
+trend <- all_sales_2019 %>%
+  group_by(Product) %>%
+  summarize(Qty = sum(QuantityOrdered), Price = mean(PriceEach))
+
+# Calculate scaling factor
+coeff <- max(trend$Qty) / max(trend$Price)
+
+# 
+ggplot(trend, aes(x = Product)) +
+  geom_col(aes(y = Qty)) + 
+  geom_line(aes(y = Price * coeff, group = 1), color = "red", size = 0.5) + 
+  geom_point(aes(y = Price * coeff), color = "green", size = 1) + 
+  scale_y_continuous(
+    name = "Quantity", 
+    sec.axis = sec_axis(~ . / coeff, name = "Mean Price ($)")
+  ) +
+  coord_flip() +  # rotates the chart
+  theme_minimal()
 
 # ===========================================================
 

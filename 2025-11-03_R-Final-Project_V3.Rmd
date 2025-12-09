@@ -1,10 +1,13 @@
 ---
-title: "2025-11-03-R-Final-Project-V2"
+title: "2025-11-09-R-Final-Project-V3"
 author: "Ei Phyu Sin Win, Htet Khant Linn, Khant Razar Kyaw, Khine Nwe Lin"
 date: "2025-12-03"
 output:
   pdf_document: default
   html_document: default
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 
 ```{r setup, include=FALSE}
@@ -23,8 +26,11 @@ library(ggplot2)
 library(dplyr)
 library(scales)
 library(forcats)
+library(forecast)
+library(tseries)
 
 ```
+
 
 # Data Loading
 
@@ -175,17 +181,16 @@ glimpse(all_sales_2019)
 write_csv(all_sales_2019, "data/processed/all_sales_2019.csv")
 ```
 
-
-
 ## Data Manipulation
+
 ### Separating PurchaseAddress into 3 Columns (Street, City and State_ZIP)
 
 ```{r}
 all_sales_2019_splitted_and_formatted <- separate(all_sales_2019, PurchaseAddress, into = c("Street", "City", "State_ZIP"), sep = ", ")
 ```
 
-
 ### Add TotalSales & Separate City and ZIP columns
+
 ```{r}
 all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>%
   mutate(
@@ -196,6 +201,7 @@ all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %
 ```
 
 ### Adding OrderDataTime, Month, and Hour Columns
+
 ```{r}
 all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>%
   mutate(
@@ -206,6 +212,7 @@ all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %
 ```
 
 ### Select and Check the Clean Data
+
 ```{r}
 all_sales_2019_splitted_and_formatted <- all_sales_2019_splitted_and_formatted %>% 
   select(
@@ -216,14 +223,16 @@ glimpse(all_sales_2019_splitted_and_formatted)
 ```
 
 ### Exporting Clean Data into CSV
+
 ```{r}
 # write_csv(all_sales_2019_splitted_and_formatted, "data/processed/all_sales_2019_v2.csv")
 
 ```
 
-
 # EDA Process
+
 ## Importing Data
+
 ```{r}
 all_sales_2019 <- read_csv("data/processed/all_sales_2019_v2.csv")
 
@@ -234,18 +243,20 @@ glimpse(all_sales_2019)
 ```
 
 ## Calcuating Summary Statistics
+
 ```{r}
 cat("=== General Summary of Data ===\n")
 summary(all_sales_2019 %>% select(QuantityOrdered, PriceEach, TotalSales))
 ```
 
 ## Checking Null Value
+
 ```{r}
 sum(is.na(all_sales_2019))
 ```
 
-
 # Question 1: What was the best month for sales? How much was earned that month?
+
 ```{r}
 total_sales_each_month <- all_sales_2019 %>%
   group_by(Month) %>%
@@ -293,6 +304,7 @@ cat("The best month for sales is", best_month_for_sales$Month,
 
 
 # Question 2: What city has the highest sales?
+
 ```{r}
 total_sales_each_city <- all_sales_2019 %>%
   group_by(City) %>%
@@ -334,6 +346,7 @@ cat("The city with highest sales is", city_with_highest_sales$City,
 
 
 # Question 3: What time should we display advertisements to maximize likehood of customers buying products?
+
 ```{r}
 glimpse(all_sales_2019)
 
@@ -360,6 +373,7 @@ print(vis_3)
 
 
 # Question 4: What products are most often sold together?
+
 ```{r}
 duplicated_OrderID <- all_sales_2019 %>%
   group_by(OrderID) %>%
@@ -384,7 +398,8 @@ print(top_10_products_sold_together)
 ```
 
 
-# Question 5: What product sold the most?
+# Question 5: What product sold the most? Why?
+
 ```{r}
 single_product_sold <- all_sales_2019 %>%
   group_by(Product) %>%
@@ -414,19 +429,46 @@ vis_4 <- ggplot(single_product_sold, aes(TotalUnitSold, fct_reorder(Product, Tot
 print(vis_4)
 ```
 
+```{r}
+# Get Quantity and Price by Product
+trend <- all_sales_2019 %>%
+  group_by(Product) %>%
+  summarize(Qty = sum(QuantityOrdered), Price = mean(PriceEach))
+
+# Calculate scaling factor
+coeff <- max(trend$Qty) / max(trend$Price)
+
+# 
+ggplot(trend, aes(x = Product)) +
+  geom_col(aes(y = Qty)) + 
+  geom_line(aes(y = Price * coeff, group = 1), color = "red", size = 0.5) + 
+  geom_point(aes(y = Price * coeff), color = "green", size = 1) + 
+  scale_y_continuous(
+    name = "Quantity", 
+    sec.axis = sec_axis(~ . / coeff, name = "Mean Price ($)")
+  ) +
+  coord_flip() +  # rotates the chart
+  theme_minimal()
+
+```
+
+From the above viausl we can see **inverse correlation**, which is cheap products (like AAA Batteries and Charging Cables) sell in very high quantities, while expensive products (like Laptops and Monitors) sell in lower quantities.
+However, there are some exception such as Even though the Mac book Pro Laptop is the most expensive item (the green dot is furthest to the right), it still sells more units than cheaper home appliances like the LG Washing Machine.
+This shows that customer demand for laptops is much higher than for appliances, regardless of the high price.
+
+This proves that while low price usually drives high volume, strong brand popularity (like Apple) or high necessity (like work laptops) can still drive sales even at high prices.
+
+
+
 
 # Building Time series model
 
 ```{r}
-library(tidyverse)
-library(lubridate)
-library(forecast)
-library(tseries)
-
 # all_sales_2019 <- read_csv("data/processed/all_sales_2019_v2.csv")
 ```
 
 ## aggregate sales by day
+
 ```{r}
 daily_sales <- all_sales_2019 %>%
   mutate(Date = as.Date(OrderDateTime)) %>% # Date format
@@ -436,41 +478,46 @@ daily_sales <- all_sales_2019 %>%
 
 ```
 
-
 ## create a Time Series Object
+
 ```{r}
 # use frequency = 7 >>> weekly seasonality
 sales_ts2 <- ts(daily_sales$TotalSales, frequency = 7)
 ```
 
 # analyze Differencing
+
 ```{r}
 sales_diff <- diff(sales_ts2)
 # we look at the Differenced data (Day 2 - Day 1)
 ```
 
-
 # plot ACF and PACF
+
 ```{r}
 ggtsdisplay(sales_diff, main="ACF & PACF of Differenced Sales")
 ```
 
+The ACF plot shows clear spikes at Lag 7, 14, and 21. This confirm a strong weekly cycle, meaning sales consistently peak on specific days (likely weekends).
+The top chart shows the data fluctuating around zero without drifting up or down, which means the data is stationary after differencing.
 
 # MODEL BUILDING
+
 ## Model A: (ARIMA 0,1,1)
+
 ```{r}
 model_a <- Arima(sales_ts2, order = c(0,1,1))
 ```
 
-
 ## Model B: (ARIMA 1,1,1)
+
 ```{r}
 model_b <- Arima(sales_ts2, order = c(1,1,1))
 # checks if yesterday's sales value directly predicts today's
 ```
 
-
 ## Model C: (SARIMA 1,1,1)(1,0,0)[7]
+
 ```{r}
 model_c <- Arima(sales_ts2, 
                  order = c(1,1,1), 
@@ -479,15 +526,17 @@ model_c <- Arima(sales_ts2,
 ```
 
 # Compare Models
+
 ```{r}
 cat("AIC Comparison (note: Lower is Better):\n")
 cat("Model A (0,1,1):", AIC(model_a), "\n")
 cat("Model B (1,1,1):", AIC(model_b), "\n")
 cat("Model C (Seasonal):", AIC(model_c), "\n")
 ```
-
+We tested three models and Model C (Seasonal ARIMA) was the most accurate because it explicitly account for the weekly sales pattern. It achieve the lowest AIC score (7833.5), which is significantly better than the non-seasonal models (7950.2 and 7952.0), indicating much tighter fit to the real data.
 
 # Visual Comparison of Forecasts
+
 ```{r}
 autoplot(sales_ts2) +
   autolayer(forecast(model_a, h=30), series="Model A (0,1,1)", PI=FALSE) +
@@ -499,6 +548,7 @@ autoplot(sales_ts2) +
 ```
 
 # visualization with the uncertainty
+
 ```{r}
 autoplot(sales_ts2) +
   autolayer(forecast(model_c, h=30), series="Model C (Seasonal)", PI=TRUE) +
@@ -508,22 +558,14 @@ autoplot(sales_ts2) +
 ```
 
 
+Unlike simple straight line, our final forecast predict that sales will continue to fluctuate week-by-week, preserving the historical "up and down" trend of the business. This is more realistic than the simple linear regression we previously tested, which only explained about 27% of the data variation.
 
 
+# Building Linear Model (Archive Part - only for review purpose) 
+**Please note that we only add this part to show what we have done before Professor feedback during the presentation. We have changed our model to Time Series as mentioned above according to professor feedback**
 
+## 1. Prepare Data: Aggregate sales by day
 
-
-
-
-
-
-
-===
-# Building Linear Model (Archive Part - only for review purpose)
-**Please note that we only add this part to show what we have done before Professor feedback during the presentation.
-We have changed our model to Time Series as mentioned above according to professor feedback**
-
-### 1. Prepare Data: Aggregate sales by day
 ```{r}
 daily_sales2 <- all_sales_2019 %>%
   mutate(Date = as.Date(OrderDateTime, format = "%m/%d/%y %H:%M")) %>%
@@ -532,7 +574,7 @@ daily_sales2 <- all_sales_2019 %>%
   mutate(DayIndex = as.numeric(Date - min(Date) + 1)) # Create a numeric time variable
 ```
 
-### 2. Build Linear Model (Simple Linear Regression)
+## 2. Build Linear Model (Simple Linear Regression)
 
 Independent Variable (X): Day of the year (Time).
 Dependent Variable (Y): Total Daily Sales.
@@ -543,27 +585,32 @@ Goal: Determine if sales are significantly increasing or decreasing as the year 
 sales_model <- lm(TotalSales ~ DayIndex, data = daily_sales2)
 ```
 
-### 3. Model Evaluation
+## 3. Model Evaluation
+
 ```{r}
 model_summary <- summary(sales_model)
 print(model_summary)
 ```
-**Model Evaluation**
-**Intercept(70834.64)**: The model estimates that on Day 0 (the very start of the year), the business would have made about $70834.64 in sales.
-**DayIndex(127.55)**: For every single day that passes in 2019, the total sales increased by an average of $127.55.Since this number is positive, the business is growing daily throughout the year.
 
-**P-Value**: The P-Value is extremely small, showing statistically significant. Because the value is less than 0.05, we are confident that the increase in sales is real and not just due to random luck.
+**Model Evaluation** **Intercept(70834.64)**: The model estimates that on Day 0 (the very start of the year), the business would have made about \$70834.64 in sales.
+**DayIndex(127.55)**: For every single day that passes in 2019, the total sales increased by an average of \$127.55.Since this number is positive, the business is growing daily throughout the year.
+
+**P-Value**: The P-Value is extremely small, showing statistically significant.
+Because the value is less than 0.05, we are confident that the increase in sales is real and not just due to random luck.
 
 **R-Squared Value**
+
 ```{r}
 # Extract R-squared to see how well the date explains sales variance
 r_squared <- model_summary$r.squared
 cat("R-squared:", r_squared, "\n")
 ```
-While there is a clear upward trend (sales increasing by ~$127/day), the date alone only explains about 27% of the sales volume. The remaining 73% of variation is *likely due to weekly cycles (weekends vs weekdays) and holiday spikes*.
 
+While there is a clear upward trend (sales increasing by \~\$127/day), the date alone only explains about 27% of the sales volume.
+The remaining 73% of variation is *likely due to weekly cycles (weekends vs weekdays) and holiday spikes*.
 
-### 4. Visualization with Regression Line
+## 4. Visualization with Regression Line
+
 ```{r}
 ggplot(daily_sales2, aes(x = Date, y = TotalSales)) +
   geom_point(alpha = 0.5, color = "navyblue") +      # Scatter plot of actual data
@@ -576,7 +623,5 @@ ggplot(daily_sales2, aes(x = Date, y = TotalSales)) +
 
 # ggsave("outputs/figures/sales_trend_regression.png")
 ```
-===
-
 
 
